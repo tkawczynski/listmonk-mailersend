@@ -1,0 +1,23 @@
+{
+  "subject": "Welcome to listmonk",
+  "body": "The message body",
+  "content_type": "plain",
+  "recipients": [
+    {
+      "uuid": "e44b4135-1e1d-40c5-8a30-0f9a886c2884",
+      "email": "anon@example.com",
+      "name": "Anon Doe",
+      "attribs": {
+        "phone": "123123123",
+        "fcm_id": "2e7e4b512e7e4b512e7e4b51",
+        "city": "Bengaluru"
+      },
+      "status": "enabled"
+    }
+  ],
+  "campaign": {
+    "uuid": "2e7e4b51-f31b-418a-a120-e41800cb689f",
+    "name": "Test campaign",
+    "tags": ["test-campaign"]
+  }
+}

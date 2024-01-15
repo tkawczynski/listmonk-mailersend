@@ -1,0 +1,39 @@
+{
+  "type": "activity.soft_bounced",
+  "domain_id": "neqvygmm93wg0p7w",
+  "created_at": "2024-01-08T14:46:07.442816Z",
+  "webhook_id": "jpzkmgqdyml059v7",
+  "url": "https://webhook.site/82477cc1-fb28-4fe9-9547-62df71137cd7",
+  "data": {
+    "object": "activity",
+    "id": "62f114f8165fe0d8db0288e5",
+    "type": "soft_bounced",
+    "created_at": "2022-08-08T13:51:52.747000Z",
+    "email": {
+      "object": "email",
+      "id": "62f114f7165fe0d8db0288e2",
+      "created_at": "2024-01-08T14:45:07.443003Z",
+      "from": "test@devdot.blog",
+      "subject": "Test subject",
+      "status": "rejected",
+      "tags": null,
+      "headers": null,
+      "message": {
+        "object": "message",
+        "id": "62fb66bef54a112e920b5493",
+        "created_at": "2024-01-08T14:44:07.442953Z"
+      },
+      "recipient": {
+        "object": "recipient",
+        "id": "62c69be104270ee9c0074d32",
+        "email": "sober.pl@gmail.com",
+        "created_at": "2024-01-08T14:39:07.442953Z"
+      }
+    },
+    "morph": {
+      "object": "recipient_bounce",
+      "reason": "Unknown reason"
+    },
+    "template_id": "0z76k5jg0o3yeg2d"
+  }
+}
