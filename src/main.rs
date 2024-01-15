@@ -91,7 +91,7 @@ async fn main() -> io::Result<()> {
                 web::post().to(listmonk::rest::messenger_handler),
             )
             .route(
-                "/webhooks/mailersend",
+                "/webhooks/service/mailersend",
                 web::post().to(mailersend::rest::webhook_handler),
             )
     })
