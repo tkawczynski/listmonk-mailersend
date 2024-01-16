@@ -15,7 +15,7 @@ pub struct Configuration {
     )]
     pub port: u16,
 
-    #[arg(long, short = 'c', env, help = "Outgoing cron schedule", default_value_t = String::from("0 */1 * * *"))]
+    #[arg(long, short = 'c', env, help = "Outgoing cron schedule", default_value_t = String::from("0 */1 * * * * *"))]
     pub outgoing_cron: String,
 
     #[arg(long, short = 'l', env, default_value_t = log::Level::Info, help="Log level")]

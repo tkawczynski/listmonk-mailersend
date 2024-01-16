@@ -36,6 +36,9 @@ impl Job for OutgoingEmailsJob {
         let mailersend_api = self.mailersend_api.clone();
         actix_rt::spawn(async move {
             let emails = emails_buffer.pop_all().await;
+            if emails.is_empty() {
+                return;
+            }
             log::info!("Sending {} cached emails", emails.len());
             match mailersend_api.send_bulk(emails, bulk_size).await {
                 Ok(_) => log::info!("Successfully sent cached emails"),
