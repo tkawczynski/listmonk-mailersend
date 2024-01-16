@@ -1,4 +1,7 @@
-use crate::listmonk::api::{BounceType, ListmonkAPI, ListmonkBounce};
+use crate::{
+    listmonk::api::{BounceType, ListmonkAPI, ListmonkBounce},
+    mailersend::api::EmailAddress,
+};
 
 use actix_web::{web, HttpResponse, Responder, Result};
 use serde::{Deserialize, Serialize};
@@ -48,11 +51,44 @@ pub async fn webhook_handler(
     payload: web::Json<WebhookRequest>,
 ) -> Result<impl Responder> {
     log::info!("Received webhook request: {:?}", payload);
-    if payload.request_type != "activity.soft_bounced"
-        && payload.request_type != "activity.hard_bounced"
-    {
-        return Ok(HttpResponse::Ok().body("OK"));
+    match payload.request_type.as_str() {
+        "activity.soft_bounced" | "activity.hard_bounced" => {
+            handle_bounce(listmonk_api, payload).await
+        }
+        "activity.spam_complaint" => handle_spam_complaint(listmonk_api, payload).await,
+        _ => {
+            log::info!("Ignoring webhook request");
+            Ok(HttpResponse::Ok().body("OK")).into()
+        }
     }
+}
+
+async fn handle_spam_complaint(
+    listmonk_api: web::Data<ListmonkAPI>,
+    payload: web::Json<WebhookRequest>,
+) -> Result<HttpResponse> {
+    log::info!("Received webhook request: {:?}", payload);
+    let recipient_email = &payload.data.email.recipient.email;
+    match listmonk_api
+        .blocklist_by_email(EmailAddress::from_string(&recipient_email).expect("Invalid email"))
+        .await
+    {
+        Ok(_) => {
+            log::info!("Successfully blacklisted recipient");
+            Ok(HttpResponse::Ok().body("OK"))
+        }
+        Err(e) => {
+            log::error!("Failed to blacklist recipient: {}", e);
+            Ok(HttpResponse::InternalServerError().body("Internal Server Error"))
+        }
+    }
+}
+
+async fn handle_bounce(
+    listmonk_api: web::Data<ListmonkAPI>,
+    payload: web::Json<WebhookRequest>,
+) -> Result<HttpResponse> {
+    log::info!("Received webhook request: {:?}", payload);
     let recipient_email = &payload.data.email.recipient.email;
     let bounce_type = if payload.request_type == "activity.soft_bounced" {
         BounceType::Soft

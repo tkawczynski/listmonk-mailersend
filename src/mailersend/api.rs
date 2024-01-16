@@ -56,6 +56,10 @@ impl EmailAddress {
             }
         }
     }
+
+    pub fn email(&self) -> &str {
+        &self.email
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
