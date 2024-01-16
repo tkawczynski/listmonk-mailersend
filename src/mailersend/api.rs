@@ -100,14 +100,21 @@ impl MailerSendAPI {
         let mut errors = String::new();
         let mut had_errors = false;
         for result in chunk_results {
-            let res = result.unwrap();
-            log::info!("MailerSend API response: {:?}", res);
-            if res.api_response_status < 200 || res.api_response_status >= 300 {
-                had_errors = true;
-                errors.push_str(&format!(
-                    "MailerSend API response: {} {}\n",
-                    res.api_response_status, res.api_response_message
-                ));
+            match result.unwrap() {
+                Ok(res) => {
+                    log::info!("MailerSend API response: {:?}", res);
+                    if res.api_response_status < 200 || res.api_response_status >= 300 {
+                        had_errors = true;
+                        errors.push_str(&format!(
+                            "MailerSend API response: {} {}\n",
+                            res.api_response_status, res.api_response_message
+                        ));
+                    }
+                }
+                Err(err) => {
+                    had_errors = true;
+                    errors.push_str(&format!("MailerSend API request failed: {}\n", err));
+                }
             }
         }
         if had_errors {
@@ -117,7 +124,8 @@ impl MailerSendAPI {
         }
     }
 
-    fn send_bulk_chunk(&self, emails_vec: Vec<Email>) -> JoinHandle<ChunkResult> {
+    fn send_bulk_chunk(&self, emails_vec: Vec<Email>) -> JoinHandle<Result<ChunkResult>> {
+        log::info!("Sending {} emails in chunk", emails_vec.len());
         let client = self.http_client.clone();
         let api_endpoint = format!("{}/bulk-email", self.api_endpoint);
         let api_key = self.api_key.clone();
@@ -136,13 +144,20 @@ impl MailerSendAPI {
                 .header("X-Requested-With", "XMLHttpRequest")
                 .bearer_auth(api_key)
                 .send()
-                .await
-                .unwrap();
-            log::info!("MailerSend API response: {:?}", res);
-            ChunkResult {
-                api_response_message: res.status().to_string(),
-                emails_count: emails_vec.len(),
-                api_response_status: res.status().into(),
+                .await;
+            match res {
+                Ok(res) => {
+                    log::info!("MailerSend API response: {:?}", res);
+                    Ok(ChunkResult {
+                        api_response_message: res.status().to_string(),
+                        emails_count: emails_vec.len(),
+                        api_response_status: res.status().into(),
+                    })
+                }
+                Err(err) => {
+                    log::error!("MailerSend API request failed: {}", err);
+                    Err(err.into())
+                }
             }
         })
     }

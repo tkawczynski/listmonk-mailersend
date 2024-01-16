@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use crate::config::Configuration;
 use crate::mailersend::api::{Email, EmailAddress, MailerSendAPI};
 use actix_web::{web, HttpResponse, Responder, Result};
 use serde::{Deserialize, Serialize};
@@ -38,7 +39,7 @@ pub struct MessengerResponse {
 }
 
 pub async fn messenger_handler(
-    app_config: web::Data<crate::Options>,
+    app_config: web::Data<Configuration>,
     mailersend_api: web::Data<MailerSendAPI>,
     messenger_req: web::Json<MessengerRequest>,
 ) -> Result<impl Responder> {

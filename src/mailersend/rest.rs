@@ -1,7 +1,4 @@
-use crate::{
-    listmonk::api::{BounceType, ListmonkAPI, ListmonkBounce},
-    Options,
-};
+use crate::listmonk::api::{BounceType, ListmonkAPI, ListmonkBounce};
 
 use actix_web::{web, HttpResponse, Responder, Result};
 use serde::{Deserialize, Serialize};
