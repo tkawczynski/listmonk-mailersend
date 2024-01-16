@@ -45,12 +45,23 @@ pub async fn messenger_handler(
     log::info!("Received messenger request: {:?}", messenger_req);
     let mut tags = messenger_req.campaign.tags.clone().unwrap_or_default();
     tags.push(format!("campaign:{}", messenger_req.campaign.uuid));
+    let from_address =
+        EmailAddress::from_string(&messenger_req.campaign.from_email).expect("Invalid from email");
     let emails = messenger_req
         .recipients
         .iter()
+        .filter(|recipient| {
+            if recipient.status == "enabled" {
+                return true;
+            }
+            log::info!(
+                "Recipient {} is not enabled, skipping",
+                recipient.email.clone()
+            );
+            false
+        })
         .map(|recipient| Email {
-            from: EmailAddress::from_string(&messenger_req.campaign.from_email)
-                .expect("Invalid from email"),
+            from: from_address.clone(),
             to: vec![EmailAddress::from_parts(
                 recipient.name.clone(),
                 &recipient.email,
