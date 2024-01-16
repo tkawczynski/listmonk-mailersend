@@ -33,6 +33,11 @@ pub struct ListmonkBounce {
     meta: Option<String>,
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct QueryBlocklistRequest {
+    query: String,
+}
+
 impl ListmonkBounce {
     pub fn new(email: &str, bounce_type: BounceType) -> Self {
         return ListmonkBounce {
@@ -104,11 +109,9 @@ impl ListmonkAPI {
                 self.api_endpoint
             ))
             .basic_auth(&self.api_username, Some(&self.api_password))
-            .header("Content-Type", "text/plain")
-            .body(format!(
-                "\"query=subscribers.email LIKE '{}'\"",
-                email.email()
-            ));
+            .json(&QueryBlocklistRequest {
+                query: format!("subscribers.email LIKE '{}'", email.email()),
+            });
         log::info!("Sending request: {:?}", request);
         let response = request.send().await?;
         let response_status = response.status();
