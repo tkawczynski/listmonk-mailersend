@@ -94,13 +94,19 @@ mod tests {
                     uuid: "123".to_string(),
                     email: "test@email.com".to_string(),
                     name: None,
-                    status: "active".to_string(),
+                    status: "enabled".to_string(),
                 },
                 Recipient {
                     uuid: "456".to_string(),
                     email: "test2@email.com".to_string(),
                     name: Some("Test recipient".to_string()),
-                    status: "active".to_string(),
+                    status: "enabled".to_string(),
+                },
+                Recipient {
+                    uuid: "156".to_string(),
+                    email: "test3@email.com".to_string(),
+                    name: Some("Test recipient".to_string()),
+                    status: "blocklisted".to_string(),
                 },
             ],
             campaign: Campaign {
