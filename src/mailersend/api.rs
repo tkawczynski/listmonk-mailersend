@@ -37,7 +37,6 @@ impl EmailAddress {
     }
 
     pub fn from_string(input: &str) -> Result<Self> {
-        log::info!("Parsing email address: {}", input);
         match EMAIL_REGEX
             .captures(input)
             .or_else(|| RAW_EMAIL_REGEX.captures(input))
