@@ -104,6 +104,7 @@ impl ListmonkAPI {
                 self.api_endpoint
             ))
             .basic_auth(&self.api_username, Some(&self.api_password))
+            .header("Content-Type", "text/plain")
             .body(format!(
                 "\"query=subscribers.email LIKE '{}'\"",
                 email.email()
