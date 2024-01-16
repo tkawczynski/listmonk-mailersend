@@ -21,7 +21,7 @@ lazy_static! {
             .unwrap();
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct EmailAddress {
     name: Option<String>,
     email: String,
@@ -36,22 +36,25 @@ impl EmailAddress {
         };
     }
 
-    pub fn from_string(input: &str) -> Self {
+    pub fn from_string(input: &str) -> Result<Self> {
         log::info!("Parsing email address: {}", input);
-        let groups = EMAIL_REGEX.captures(input).unwrap_or_else(|| {
-            RAW_EMAIL_REGEX
-                .captures(input)
-                .expect("Invalid email address")
-        });
-        let name = groups
-            .name("name")
-            .map_or(None, |x| Some(x.as_str().trim()));
-        let mailbox = groups.name("mailbox").unwrap().as_str();
-        let domain = groups.name("domain").unwrap().as_str();
-        return EmailAddress {
-            name: name.map(|x| x.to_string()),
-            email: format!("{}@{}", mailbox, domain),
-        };
+        match EMAIL_REGEX
+            .captures(input)
+            .or_else(|| RAW_EMAIL_REGEX.captures(input))
+        {
+            None => Err("Invalid email address".into()),
+            Some(groups) => {
+                let name = groups
+                    .name("name")
+                    .map_or(None, |x| Some(x.as_str().trim()));
+                let mailbox = groups.name("mailbox").unwrap().as_str();
+                let domain = groups.name("domain").unwrap().as_str();
+                Ok(EmailAddress {
+                    name: name.map(|x| x.to_string()),
+                    email: format!("{}@{}", mailbox, domain),
+                })
+            }
+        }
     }
 }
 
@@ -70,14 +73,13 @@ pub struct Email {
 struct ChunkResult {
     api_response_status: u16,
     api_response_message: String,
-    emails_count: usize,
 }
 
 #[derive(Clone)]
 pub struct MailerSendAPI {
     http_client: Client,
     api_endpoint: String,
-    api_key: String,
+    api_token: String,
     throttler: Arc<Mutex<Throttler>>,
 }
 
@@ -86,7 +88,7 @@ impl MailerSendAPI {
         MailerSendAPI {
             http_client: Client::new(),
             api_endpoint: api_endpoint.to_string(),
-            api_key: api_key.to_string(),
+            api_token: api_key.to_string(),
             throttler: Arc::new(Mutex::new(Throttler::new(req_per_min))),
         }
     }
@@ -128,7 +130,7 @@ impl MailerSendAPI {
         log::info!("Sending {} emails in chunk", emails_vec.len());
         let client = self.http_client.clone();
         let api_endpoint = format!("{}/bulk-email", self.api_endpoint);
-        let api_key = self.api_key.clone();
+        let api_token = self.api_token.clone();
         let throttler = self.throttler.clone();
         actix_rt::spawn(async move {
             log::info!("Throttling MailerSend API request");
@@ -142,7 +144,7 @@ impl MailerSendAPI {
                 .json(&emails_vec)
                 .header("Content-Type", "application/json")
                 .header("X-Requested-With", "XMLHttpRequest")
-                .bearer_auth(api_key)
+                .bearer_auth(api_token)
                 .send()
                 .await;
             match res {
@@ -150,7 +152,6 @@ impl MailerSendAPI {
                     log::info!("MailerSend API response: {:?}", res);
                     Ok(ChunkResult {
                         api_response_message: res.status().to_string(),
-                        emails_count: emails_vec.len(),
                         api_response_status: res.status().into(),
                     })
                 }
@@ -169,14 +170,14 @@ mod tests {
 
     #[test]
     fn test_email_address_from_string() {
-        let email = EmailAddress::from_string("John Doe <john_doe@mail.com>");
+        let email = EmailAddress::from_string("John Doe <john_doe@mail.com>").unwrap();
         assert_eq!(email.name, Some("John Doe".to_string()));
         assert_eq!(email.email, "john_doe@mail.com".to_string());
     }
 
     #[test]
     fn test_email_address_from_string_no_name() {
-        let email = EmailAddress::from_string("john_doe@mail.com");
+        let email = EmailAddress::from_string("john_doe@mail.com").unwrap();
         assert_eq!(email.name, None);
         assert_eq!(email.email, "john_doe@mail.com".to_string());
     }
@@ -193,5 +194,17 @@ mod tests {
         let email = EmailAddress::from_parts(None, "john_doe@mail.com");
         assert_eq!(email.name, None);
         assert_eq!(email.email, "john_doe@mail.com".to_string());
+    }
+
+    #[test]
+    fn test_invalid_email_address_from_string() {
+        let error = EmailAddress::from_string("not-an-email").unwrap_err();
+        assert_eq!(error.to_string(), "Invalid email address");
+    }
+
+    #[test]
+    fn test_invalid_email_with_name() {
+        let error = EmailAddress::from_string("John Doe <not-an-email>").unwrap_err();
+        assert_eq!(error.to_string(), "Invalid email address");
     }
 }

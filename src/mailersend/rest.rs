@@ -59,11 +59,18 @@ pub async fn webhook_handler(
     } else {
         BounceType::Hard
     };
-    // let campaign_uuid = &payload.data.email.tags[0];
+    let capaign_uuid_tag = payload
+        .data
+        .email
+        .tags
+        .as_ref()
+        .and_then(|tags| tags.iter().find(|tag| tag.starts_with("campaign:")))
+        .map(|tag| tag.replace("campaign:", ""));
     let meta = &payload.data.email.id;
-    let listmonk_bounce = ListmonkBounce::new(recipient_email, bounce_type)
-        // .with_campaign_uuid(campaign_uuid)
-        .with_meta(meta);
+    let mut listmonk_bounce = ListmonkBounce::new(recipient_email, bounce_type).with_meta(meta);
+    if let Some(campaign_uuid) = capaign_uuid_tag {
+        listmonk_bounce = listmonk_bounce.with_campaign_uuid(&campaign_uuid);
+    }
     match listmonk_api.record_bounce(listmonk_bounce).await {
         Ok(_) => {
             log::info!("Successfully recorded bounce event");

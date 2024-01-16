@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
-use crate::config::Configuration;
-use crate::mailersend::api::{Email, EmailAddress, MailerSendAPI};
+use crate::mailersend::api::{Email, EmailAddress};
+use crate::mailersend::buffer::Buffer;
 use actix_web::{web, HttpResponse, Responder, Result};
 use serde::{Deserialize, Serialize};
 
@@ -19,7 +19,7 @@ pub struct Campaign {
     name: String,
     from_email: String,
     headers: Vec<HashMap<String, String>>,
-    tags: Vec<String>,
+    tags: Option<Vec<String>>,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
@@ -39,16 +39,18 @@ pub struct MessengerResponse {
 }
 
 pub async fn messenger_handler(
-    app_config: web::Data<Configuration>,
-    mailersend_api: web::Data<MailerSendAPI>,
+    email_buffer: web::Data<Buffer>,
     messenger_req: web::Json<MessengerRequest>,
 ) -> Result<impl Responder> {
     log::info!("Received messenger request: {:?}", messenger_req);
+    let mut tags = messenger_req.campaign.tags.clone().unwrap_or_default();
+    tags.push(format!("campaign:{}", messenger_req.campaign.uuid));
     let emails = messenger_req
         .recipients
         .iter()
         .map(|recipient| Email {
-            from: EmailAddress::from_string(&messenger_req.campaign.from_email),
+            from: EmailAddress::from_string(&messenger_req.campaign.from_email)
+                .expect("Invalid from email"),
             to: vec![EmailAddress::from_parts(
                 recipient.name.clone(),
                 &recipient.email,
@@ -57,29 +59,67 @@ pub async fn messenger_handler(
             subject: messenger_req.subject.clone(),
             text: None,
             html: Some(messenger_req.body.clone()),
-            tags: messenger_req.campaign.tags.clone(),
+            tags: tags.clone(),
         })
         .collect();
-    match mailersend_api
-        .send_bulk(emails, app_config.api_email_bulk_size)
-        .await
-    {
-        Ok(_) => {
-            log::info!("Successfully sent messenger request");
-            Ok(HttpResponse::Ok().json(MessengerResponse {
-                status: String::from("success"),
-                message: None,
-                data: None,
-            }))
-        }
+    email_buffer.push_all(emails).await;
+    Ok(HttpResponse::Ok())
+}
 
-        Err(e) => {
-            log::error!("Failed to send messenger request: {:?}", e);
-            Ok(HttpResponse::InternalServerError().json(MessengerResponse {
-                status: String::from("error"),
-                message: Some(String::from("Failed to send messenger request")),
-                data: None,
-            }))
-        }
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::mailersend::api::EmailAddress;
+
+    #[actix_rt::test]
+    async fn test_messenger_handler() {
+        let email_buffer = web::Data::new(Buffer::new());
+        let messenger_req = web::Json(MessengerRequest {
+            subject: "Test subject".to_string(),
+            body: "<h1>Test</h1>".to_string(),
+            content_type: "text/html".to_string(),
+            recipients: vec![
+                Recipient {
+                    uuid: "123".to_string(),
+                    email: "test@email.com".to_string(),
+                    name: None,
+                    status: "active".to_string(),
+                },
+                Recipient {
+                    uuid: "456".to_string(),
+                    email: "test2@email.com".to_string(),
+                    name: Some("Test recipient".to_string()),
+                    status: "active".to_string(),
+                },
+            ],
+            campaign: Campaign {
+                uuid: "789".to_string(),
+                name: "Test campaign".to_string(),
+                from_email: "from@email.com".to_string(),
+                headers: vec![],
+                tags: None,
+            },
+        });
+        messenger_handler(email_buffer.clone(), messenger_req)
+            .await
+            .unwrap();
+        let emails = email_buffer.pop_all().await;
+        assert_eq!(emails.len(), 2);
+        assert_eq!(
+            emails[0].from,
+            EmailAddress::from_string("from@email.com").expect("Invalid from email")
+        );
+
+        assert_eq!(emails[0].to.len(), 1);
+        assert_eq!(
+            emails[0].to[0],
+            EmailAddress::from_parts(None, "test@email.com")
+        );
+        assert_eq!(emails[0].reply_to, None);
+        assert_eq!(emails[0].subject, "Test subject".to_string());
+        assert_eq!(emails[0].text, None);
+        assert_eq!(emails[0].html, Some("<h1>Test</h1>".to_string()));
+        assert_eq!(emails[0].tags.len(), 1);
+        assert_eq!(emails[0].tags[0], "campaign:789".to_string());
     }
 }

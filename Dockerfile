@@ -4,7 +4,8 @@ WORKDIR /usr/src/listmonk-mailersend
 
 COPY . .
 
-RUN cargo install --path .
+RUN cargo test && \
+    cargo install --path .
 
 FROM debian:bullseye-slim
 

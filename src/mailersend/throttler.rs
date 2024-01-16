@@ -33,3 +33,16 @@ impl Throttler {
         false
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use std::time::Duration;
+
+    #[test]
+    fn test_should_block() {
+        let mut throttler = Throttler::new(1);
+        assert!(throttler.try_blocking(Duration::from_secs(1)));
+        assert!(!throttler.try_blocking(Duration::from_secs(1)));
+    }
+}
